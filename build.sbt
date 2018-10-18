@@ -86,7 +86,7 @@ lazy val `s2graph-model` = (project in file("s2graph-model")).
     commonSettings
   )
 
-lazy val root = (project in file("."))
+lazy val `story-s2graph-model` = (project in file("."))
   .aggregate(`s2graph-model`)
   .settings(
     skip in packageBin := true,

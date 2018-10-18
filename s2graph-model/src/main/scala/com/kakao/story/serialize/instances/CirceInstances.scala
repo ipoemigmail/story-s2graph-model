@@ -7,9 +7,10 @@ import java.util.UUID
 import cats.implicits._
 import io.circe.Decoder.Result
 import io.circe._
+import io.circe.generic.AutoDerivation
 import io.circe.parser.decode
 
-trait CirceInstances {
+trait CirceInstances extends AutoDerivation {
   implicit def fromJsonEncoderToCirceEncoder[A](implicit J: JsonEncoder[A]) = new Encoder[A] {
     def apply(a: A): Json = decode[Json](J.toJson(a)).right.get
   }

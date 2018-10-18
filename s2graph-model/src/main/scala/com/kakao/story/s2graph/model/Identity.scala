@@ -4,7 +4,7 @@ package model
 
 import serialize.syntax.all._
 import cats.syntax.either._
-import com.kakao.story.serialize.{JsonDecoder, JsonEncoder}
+import serialize.{JsonDecoder, JsonEncoder}
 
 class Identity(val value: String) extends AnyVal
 
