@@ -5,11 +5,13 @@ lazy val macroParadiseVersion = "2.1.1"
 lazy val kindProjectorVersion = "0.9.7"
 lazy val simulacrumVersion = "0.13.0"
 lazy val circeVersion = "0.10.0"
+lazy val requestsVersion = "0.1.4"
 
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     //compilerPlugin("org.spire-math" %% "kind-projector" % kindProjectorVersion),
     "com.github.mpilquist" %% "simulacrum" % simulacrumVersion,
+    "com.lihaoyi" %% "requests" % requestsVersion,
     compilerPlugin("org.scalamacros" % "paradise" % macroParadiseVersion cross CrossVersion.full),
     //"org.typelevel" %% "cats-core" % catsVersion,
     "org.scalatest" %% "scalatest" % scalaTestVersion
@@ -20,6 +22,9 @@ lazy val commonSettings = Seq(
       "io.circe" %% "circe-parser"
     ).map(_ % circeVersion): _*
   ),
+
+  unmanagedClasspath in Compile += new File("/Users/ben.jeong/Develop/Workspace/story/story-spark-job2/project-submodule/data-common/target/scala-2.11/classes"),
+
   publishConfiguration := publishConfiguration.value.withOverwrite(true),
 
   addCompilerPlugin("org.scalamacros" % "paradise" % macroParadiseVersion cross CrossVersion.full),

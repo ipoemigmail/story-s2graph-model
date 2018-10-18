@@ -9,6 +9,7 @@ import syntax.all._
 import instances.circe._
 import io.circe.Json
 import cats.syntax.all._
+import com.sun.jdi.LongValue
 
 class CirceInstancesTest extends FlatSpec with Matchers {
 
@@ -205,6 +206,89 @@ class CirceInstancesTest extends FlatSpec with Matchers {
         |  ]
         |}""".stripMargin
     graphQuery.toJson should be(formatJson(result))
+  }
+
+  it should "" in {
+    import s2graph.model._
+    import java.time.{ZonedDateTime => ZDT}
+    import inhouse.utils.StoryId
+
+    val now = ZDT.now.toInstant.toEpochMilli
+
+    val daisy = Value("3712378").some
+    val me = Value("25732910").some
+
+    val srcVertices = NEL(
+      Vertex(
+        serviceName = Identity("kakaostory"),
+        columnName = Identity("profile_id"),
+        id = me
+      )
+    )
+
+    def recentReadContents(n: Int) = StepDetail(
+      label = "kakaostory_3tab_user_doc_action",
+      offset = 0.some,
+      limit = n.some,
+      direction = Direction.Out.some,
+      index = Identity("_IDX_ACTION").some,
+      duration = Duration(0, now).some,
+      interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
+    )
+
+    val contentsReaders = StepDetail(
+      label = "kakaostory_3tab_user_doc_action",
+      offset = 0.some,
+      limit = 10.some,
+      direction = Direction.In.some,
+      index = Identity("_IDX_ACTION").some,
+      scoring = Map(Identity("score") -> 1.0).some,
+      duration = Duration(0, now).some,
+      interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
+    )
+
+    val graphQuery1 = GraphQuery.single(
+      groupBy = NEL(Identity("to"), Identity("image_path")).some,
+      srcVertices = srcVertices,
+      steps = NEL(
+        Step(step = NEL(recentReadContents(5))),
+        Step(step = NEL(contentsReaders)),
+        Step(step = NEL(recentReadContents(10)))
+      )
+    )
+
+    val multiQuery = GraphQuery.multi(
+      queries = NEL(
+        graphQuery1,
+        graphQuery1,
+      ))
+
+    println(graphQuery1.toJson)
+
+    val result = requests.post(url = "http://graph-query.iwilab.com:9000/graphs/getEdges",
+                               headers = List("Content-Type" -> "application/json"),
+                               data = graphQuery1.toJson)
+
+    import inhouse.utils.StoryId
+
+    def parseIdentity(a: Identity) = a match {
+      case LongIdentity(v)   => v.toString
+      case StringIdentity(v) => v.toString
+    }
+
+    def parseValue(a: Value) = a match {
+      case StringValue(v) => v.toString
+      case DoubleValue(v) => v.toString
+      case IntValue(v) => v.toString
+    }
+
+    decode[QueryResult](result.text) match {
+      case Left(t)  => println(t)
+      case Right(queryResult) => queryResult.results.map(edge => edge match {
+        case SingleEdge(_, _, _, _, to, _, _, _) => StoryId.activityPermalink("real", parseIdentity(to.get))
+        case AggEdges(Some(group), _, Some(agg)) => StoryId.activityPermalink("real", parseValue(group(Identity("to"))))
+      }).foreach(println)
+    }
   }
 
 }
