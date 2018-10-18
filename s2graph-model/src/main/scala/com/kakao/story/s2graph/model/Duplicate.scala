@@ -2,7 +2,7 @@ package com.kakao.story
 package s2graph
 package model
 
-import serialize.JsonEncoder
+import serialize.{JsonDecoder, JsonEncoder}
 import serialize.syntax.all._
 
 sealed trait Duplicate
@@ -33,5 +33,14 @@ trait DuplicateInstances {
         case Duplicate.Raw      => "raw"
         case _                  => "first"
       }).toJson
+  }
+
+  implicit val operationDecoder = new JsonDecoder[Duplicate] {
+    def jsonTo(a: String): Either[Throwable, Duplicate] = a.jsonTo[String].map {
+      case "sum"      => Duplicate.Sum
+      case "countSum" => Duplicate.CountSum
+      case "raw"      => Duplicate.Raw
+      case "first"    => Duplicate.First
+    }
   }
 }

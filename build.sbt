@@ -23,7 +23,7 @@ lazy val commonSettings = Seq(
     ).map(_ % circeVersion): _*
   ),
 
-  unmanagedClasspath in Compile += new File("/Users/ben.jeong/Develop/Workspace/story/story-spark-job2/project-submodule/data-common/target/scala-2.11/classes"),
+  unmanagedClasspath in Compile += new File("/Users/ben.jeong/Develop/Works/Kakao/Story/story-spark-job2/project-submodule/data-common/target/scala-2.11/classes"),
 
   publishConfiguration := publishConfiguration.value.withOverwrite(true),
 

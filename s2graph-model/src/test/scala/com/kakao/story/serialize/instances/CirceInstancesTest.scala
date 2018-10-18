@@ -222,7 +222,7 @@ class CirceInstancesTest extends FlatSpec with Matchers {
       Vertex(
         serviceName = Identity("kakaostory"),
         columnName = Identity("profile_id"),
-        id = me
+        id = daisy
       )
     )
 
@@ -233,10 +233,11 @@ class CirceInstancesTest extends FlatSpec with Matchers {
       offset = 0.some,
       limit = n.some,
       direction = Direction.Out.some,
-      index = Identity("_IDX_ACTION").some,
-      scoring = Map(Identity("score") -> 1.0).some,
-      timeDecay = TimeDecay(1.0, 0.1, TimeUnit).some,
+      scoring = Map(Identity("doc_create_at") -> 10.0).some,
+      timeDecay = TimeDecay(1.0, 0.01, TimeUnit).some,
+      duplicate = Duplicate.First.some,
       duration = Duration(0, now).some,
+      index = Identity("_IDX_ACTION").some,
       interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
     )
 
@@ -262,7 +263,7 @@ class CirceInstancesTest extends FlatSpec with Matchers {
     )
 
     val query = GraphQuery.single(
-      groupBy = NEL(Identity("to"), Identity("image_path")).some,
+      removeCycle = true.some,
       srcVertices = srcVertices,
       steps = NEL(
         Step(step = NEL(recentReadContents(10))),
@@ -288,6 +289,9 @@ class CirceInstancesTest extends FlatSpec with Matchers {
       case LongValue(v)    => v.toString
     }
 
+    def makeRow(link: String, epochMilli: Long) =
+      s"$link - ${Instant.ofEpochMilli(epochMilli).atZone(ZoneId.systemDefault).toLocalDateTime}"
+
     println(s"start time ${now}")
     decode[QueryResult](result.text) match {
       case Left(t) =>
@@ -295,17 +299,17 @@ class CirceInstancesTest extends FlatSpec with Matchers {
         println(t)
       case Right(queryResult) =>
         println(s"Size: ${queryResult.size}")
-        queryResult.results.foreach(x => println(x.toJson))
-        /*
-          .map {
-            case SingleEdge(_, _, _, _, to, _, _, _) => StoryId.activityPermalink("real", parseIdentity(to.get))
+        queryResult.results//.foreach(x => println(x.toJson))
+          .collect {
+            case SingleEdge(Some(timestamp), _, _, _, Some(to), _, _, _) =>
+              val link = StoryId.activityPermalink("real", parseIdentity(to))
+              makeRow(link, timestamp)
             case AggEdges(Some(group), _, Some(agg)) =>
               val link = StoryId.activityPermalink("real", parseValue(group(Identity("to"))))
               val last = agg.map(_.timestamp).max
-              s"$link - ${Instant.ofEpochMilli(last.get).atZone(ZoneId.systemDefault).toLocalDateTime}"
+              makeRow(link, last.get)
           }
           .foreach(println)
-          */
     }
   }
 
