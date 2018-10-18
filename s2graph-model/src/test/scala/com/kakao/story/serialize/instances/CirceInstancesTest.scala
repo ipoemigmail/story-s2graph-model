@@ -9,7 +9,6 @@ import syntax.all._
 import instances.circe._
 import io.circe.Json
 import cats.syntax.all._
-import com.sun.jdi.LongValue
 
 class CirceInstancesTest extends FlatSpec with Matchers {
 
@@ -210,7 +209,8 @@ class CirceInstancesTest extends FlatSpec with Matchers {
 
   it should "" in {
     import s2graph.model._
-    import java.time.{ZonedDateTime => ZDT}
+    import java.time.{ZonedDateTime => ZDT, Instant, ZoneId}
+
     import inhouse.utils.StoryId
 
     val now = ZDT.now.toInstant.toEpochMilli
@@ -226,12 +226,16 @@ class CirceInstancesTest extends FlatSpec with Matchers {
       )
     )
 
+    val TimeUnit: Long = 5 * 60 * 1000
+
     def recentReadContents(n: Int) = StepDetail(
       label = "kakaostory_3tab_user_doc_action",
       offset = 0.some,
       limit = n.some,
       direction = Direction.Out.some,
       index = Identity("_IDX_ACTION").some,
+      scoring = Map(Identity("score") -> 1.0).some,
+      timeDecay = TimeDecay(1.0, 0.1, TimeUnit).some,
       duration = Duration(0, now).some,
       interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
     )
@@ -242,32 +246,34 @@ class CirceInstancesTest extends FlatSpec with Matchers {
       limit = 10.some,
       direction = Direction.In.some,
       index = Identity("_IDX_ACTION").some,
+      duration = Duration(0, now).some,
+      interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
+    )
+
+    val editorSuggestContents = StepDetail(
+      label = "kakaostory_3tab_editor_doc_select",
+      offset = 0.some,
+      limit = 10.some,
+      direction = Direction.In.some,
+      index = Identity("_IDX_ACTION").some,
       scoring = Map(Identity("score") -> 1.0).some,
       duration = Duration(0, now).some,
       interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
     )
 
-    val graphQuery1 = GraphQuery.single(
+    val query = GraphQuery.single(
       groupBy = NEL(Identity("to"), Identity("image_path")).some,
       srcVertices = srcVertices,
       steps = NEL(
-        Step(step = NEL(recentReadContents(5))),
-        Step(step = NEL(contentsReaders)),
-        Step(step = NEL(recentReadContents(10)))
+        Step(step = NEL(recentReadContents(10))),
       )
     )
 
-    val multiQuery = GraphQuery.multi(
-      queries = NEL(
-        graphQuery1,
-        graphQuery1,
-      ))
-
-    println(graphQuery1.toJson)
+    println(query.toJson)
 
     val result = requests.post(url = "http://graph-query.iwilab.com:9000/graphs/getEdges",
                                headers = List("Content-Type" -> "application/json"),
-                               data = graphQuery1.toJson)
+                               data = query.toJson)
 
     import inhouse.utils.StoryId
 
@@ -279,15 +285,27 @@ class CirceInstancesTest extends FlatSpec with Matchers {
     def parseValue(a: Value) = a match {
       case StringValue(v) => v.toString
       case DoubleValue(v) => v.toString
-      case IntValue(v) => v.toString
+      case LongValue(v)    => v.toString
     }
 
+    println(s"start time ${now}")
     decode[QueryResult](result.text) match {
-      case Left(t)  => println(t)
-      case Right(queryResult) => queryResult.results.map(edge => edge match {
-        case SingleEdge(_, _, _, _, to, _, _, _) => StoryId.activityPermalink("real", parseIdentity(to.get))
-        case AggEdges(Some(group), _, Some(agg)) => StoryId.activityPermalink("real", parseValue(group(Identity("to"))))
-      }).foreach(println)
+      case Left(t) =>
+        println(result.text)
+        println(t)
+      case Right(queryResult) =>
+        println(s"Size: ${queryResult.size}")
+        queryResult.results.foreach(x => println(x.toJson))
+        /*
+          .map {
+            case SingleEdge(_, _, _, _, to, _, _, _) => StoryId.activityPermalink("real", parseIdentity(to.get))
+            case AggEdges(Some(group), _, Some(agg)) =>
+              val link = StoryId.activityPermalink("real", parseValue(group(Identity("to"))))
+              val last = agg.map(_.timestamp).max
+              s"$link - ${Instant.ofEpochMilli(last.get).atZone(ZoneId.systemDefault).toLocalDateTime}"
+          }
+          .foreach(println)
+          */
     }
   }
 
