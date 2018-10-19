@@ -213,7 +213,10 @@ class CirceInstancesTest extends FlatSpec with Matchers {
 
     import inhouse.utils.StoryId
 
-    val now = ZDT.now.toInstant.toEpochMilli
+    val now = ZDT.now
+
+    val targetMilli = now.toInstant.toEpochMilli
+    //val targetMilli = 1539909605221L
 
     val daisy = Value("3712378").some
     val me = Value("25732910").some
@@ -226,28 +229,45 @@ class CirceInstancesTest extends FlatSpec with Matchers {
       )
     )
 
-    val TimeUnit: Long = 5 * 60 * 1000
+    //val TimeUnit: Long = 60 * 60 * 1000
+    val TimeUnit: Long = 100000000
 
-    def recentReadContents(n: Int) = StepDetail(
+    val scoring = Map(Identity("doc_created_at") -> Value(1), Identity("_timestamp") -> Value(0)).some
+    //val scoring = none[Map[Identity, Value]]
+
+    //val timeDecay = TimeDecay(1.0, 0.9, TimeUnit).some
+    val timeDecay = none[TimeDecay]
+
+    def recentReadContents(offset: Int, limit: Int) = StepDetail(
       label = "kakaostory_3tab_user_doc_action",
-      offset = 0.some,
-      limit = n.some,
+      offset = offset.some,
+      limit = limit.some,
       direction = Direction.Out.some,
-      scoring = Map(Identity("doc_create_at") -> 10.0).some,
-      timeDecay = TimeDecay(1.0, 0.01, TimeUnit).some,
       duplicate = Duplicate.First.some,
-      duration = Duration(0, now).some,
+      duration = Duration(0, targetMilli).some,
       index = Identity("_IDX_ACTION").some,
+    )
+
+    def contentsReaders(offset: Int, limit: Int) = StepDetail(
+      label = "kakaostory_3tab_user_doc_action",
+      offset = offset.some,
+      limit = limit.some,
+      direction = Direction.In.some,
+      index = Identity("_IDX_ACTION").some,
+      duplicate = Duplicate.First.some,
+      duration = Duration(0, targetMilli).some,
       interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
     )
 
-    val contentsReaders = StepDetail(
+    def recentReadContentsWithScoring(offset: Int, limit: Int) = StepDetail(
       label = "kakaostory_3tab_user_doc_action",
-      offset = 0.some,
-      limit = 10.some,
-      direction = Direction.In.some,
+      offset = offset.some,
+      limit = limit.some,
+      scoring = scoring,
+      direction = Direction.Out.some,
+      duplicate = Duplicate.CountSum.some,
+      duration = Duration(0, targetMilli).some,
       index = Identity("_IDX_ACTION").some,
-      duration = Duration(0, now).some,
       interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
     )
 
@@ -257,57 +277,71 @@ class CirceInstancesTest extends FlatSpec with Matchers {
       limit = 10.some,
       direction = Direction.In.some,
       index = Identity("_IDX_ACTION").some,
-      scoring = Map(Identity("score") -> 1.0).some,
-      duration = Duration(0, now).some,
+      scoring = Map(Identity("score") -> Value(1)).some,
+      duration = Duration(0, targetMilli).some,
       interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
     )
 
-    val query = GraphQuery.single(
-      removeCycle = true.some,
+    import inhouse.utils.StoryId
+
+    def parseEpochMilli(milli: Long) =
+      Instant.ofEpochMilli(milli).atZone(ZoneId.systemDefault).toLocalDateTime.toString
+
+    def makeRow(link: String, date: String, timestamp: String, docCreatedAt: String, score: String) =
+      s"$link - Time:$date ($timestamp) - ActivityGuid: $docCreatedAt Score: $score"
+
+    val filterOutQuery = GraphQuery.single(
       srcVertices = srcVertices,
       steps = NEL(
-        Step(step = NEL(recentReadContents(10))),
+        Step(step = NEL(recentReadContents(0, -1))),
+      )
+    )
+
+    val query = GraphQuery.single(
+      filterOut = filterOutQuery.some,
+      removeCycle = true.some,
+      srcVertices = srcVertices,
+      //groupBy = NEL(Identity("to")).some,
+      orderBy = NEL(Map(Identity("doc_created_at") -> Identity("DESC"))).some,
+      steps = NEL(
+        Step(step = NEL(recentReadContents(0, -1))),
+        Step(step = NEL(contentsReaders(0, 5))),
+        Step(step = NEL(recentReadContentsWithScoring(0, 5))),
       )
     )
 
     println(query.toJson)
 
+    println(s"start time: ${now}(${now.toInstant.toEpochMilli})")
+    println(s"score: ${scoring}")
+    println(s"timeDecay: ${timeDecay}")
+    println(s"duration: 0 ~ ${targetMilli}")
     val result = requests.post(url = "http://graph-query.iwilab.com:9000/graphs/getEdges",
                                headers = List("Content-Type" -> "application/json"),
                                data = query.toJson)
 
-    import inhouse.utils.StoryId
-
-    def parseIdentity(a: Identity) = a match {
-      case LongIdentity(v)   => v.toString
-      case StringIdentity(v) => v.toString
-    }
-
-    def parseValue(a: Value) = a match {
-      case StringValue(v) => v.toString
-      case DoubleValue(v) => v.toString
-      case LongValue(v)    => v.toString
-    }
-
-    def makeRow(link: String, epochMilli: Long) =
-      s"$link - ${Instant.ofEpochMilli(epochMilli).atZone(ZoneId.systemDefault).toLocalDateTime}"
-
-    println(s"start time ${now}")
     decode[QueryResult](result.text) match {
       case Left(t) =>
         println(result.text)
         println(t)
+
       case Right(queryResult) =>
-        println(s"Size: ${queryResult.size}")
-        queryResult.results//.foreach(x => println(x.toJson))
-          .collect {
-            case SingleEdge(Some(timestamp), _, _, _, Some(to), _, _, _) =>
-              val link = StoryId.activityPermalink("real", parseIdentity(to))
-              makeRow(link, timestamp)
-            case AggEdges(Some(group), _, Some(agg)) =>
-              val link = StoryId.activityPermalink("real", parseValue(group(Identity("to"))))
-              val last = agg.map(_.timestamp).max
-              makeRow(link, last.get)
+        println(s"result size: ${queryResult.size}")
+        queryResult.results
+          .map {
+            case SingleEdge(Some(timestamp), _, Some(score), _, Some(to), _, _, props) =>
+              val link = StoryId.activityPermalink("real", to.getString.get)
+              val docCreatedAt = props("doc_created_at").toString
+              makeRow(link, parseEpochMilli(timestamp), timestamp.toString, docCreatedAt, "%.40f".format(score))
+
+            case AggEdges(Some(group), Some(scoreSum), Some(agg @ List(headEdge, _ @_*))) =>
+              val link = StoryId.activityPermalink("real", group(Identity("to")).getString.get)
+              val timestamp = agg.map(_.timestamp).max
+              val docCreatedAt = headEdge.props(Identity("doc_created_at")).toString
+              makeRow(link, parseEpochMilli(timestamp.get), timestamp.toString, docCreatedAt, "%.40f".format(scoreSum))
+
+            case text =>
+              s"illegal data format: ${text}"
           }
           .foreach(println)
     }

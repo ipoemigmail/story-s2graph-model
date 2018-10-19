@@ -10,7 +10,7 @@ case class StepDetail(
     index: Option[Identity] = None,
     interval: Option[Interval] = None,
     duration: Option[Duration] = None,
-    scoring: Option[Map[Identity, Double]] = None,
+    scoring: Option[Map[Identity, Value]] = None,
     where: Option[String] = None,
     outputField: Option[Identity] = None,
     exclude: Option[Boolean] = Some(false),

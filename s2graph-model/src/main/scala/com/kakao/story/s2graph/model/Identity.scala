@@ -5,8 +5,19 @@ package model
 import serialize.syntax.all._
 import cats.syntax.either._
 import serialize.{JsonDecoder, JsonEncoder}
+import cats.syntax.option._
 
-trait Identity
+trait Identity { self =>
+  def getString: Option[String] = self match {
+    case StringIdentity(d) => d.some
+    case _                 => none
+  }
+
+  def getLong: Option[Long] = self match {
+    case LongIdentity(d) => d.some
+    case _               => none
+  }
+}
 case class LongIdentity(value: Long) extends Identity
 case class StringIdentity(value: String) extends Identity
 

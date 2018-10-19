@@ -12,7 +12,7 @@ trait Edge
 case class SingleEdge(
     timestamp: Option[Long],
     operation: Option[Operation],
-    score: Option[Value],
+    score: Option[Double],
     from: Option[Identity],
     to: Option[Identity],
     label: Option[Identity],
@@ -30,7 +30,7 @@ object Edge extends EdgeInstances {
   def singleEdge(
       timestamp: Option[Long],
       operation: Option[Operation],
-      score: Option[Value],
+      score: Option[Double],
       from: Option[Identity],
       to: Option[Identity],
       label: Option[Identity],
