@@ -5,7 +5,7 @@ package model
 import serialize.{JsonDecoder, JsonEncoder}
 import serialize.syntax.all._
 
-sealed trait Duplicate
+sealed abstract class Duplicate
 
 object Duplicate extends DuplicateInstances {
 

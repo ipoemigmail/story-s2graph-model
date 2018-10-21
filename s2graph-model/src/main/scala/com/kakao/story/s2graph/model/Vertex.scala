@@ -2,7 +2,7 @@ package com.kakao.story
 package s2graph
 package model
 
-case class Vertex(
+final case class Vertex(
     timestamp: Option[Long] = None,
     serviceName: Identity,
     columnName: Identity,

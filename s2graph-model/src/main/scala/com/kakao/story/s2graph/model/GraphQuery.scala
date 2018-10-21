@@ -7,9 +7,9 @@ import serialize.instances.all._
 import serialize.syntax.all._
 import cats.syntax.either._
 
-sealed trait GraphQuery
+sealed abstract class GraphQuery
 
-case class SingleQuery(
+final case class SingleQuery(
     srcVertices: NEL[Vertex],
     steps: NEL[Step],
     removeCycle: Option[Boolean] = Some(true),
@@ -17,10 +17,10 @@ case class SingleQuery(
     groupBy: Option[NEL[Identity]] = None,
     orderBy: Option[NEL[Map[Identity, Identity]]] = None,
     filterOut: Option[GraphQuery] = None,
-    filterOutFields: Option[NEL[Identity]] = Some(NEL("_to"))
+    filterOutFields: Option[NEL[Identity]] = Some(NEL(Identity.unsafeApply("_to")))
 ) extends GraphQuery
 
-case class MultiQuery(
+final case class MultiQuery(
     returnDegree: Option[Boolean] = None,
     returnAgg: Option[Boolean] = None,
     groupBy: Option[NEL[Identity]] = None,
@@ -38,7 +38,7 @@ object GraphQuery extends GraphQueryInstances {
       groupBy: Option[NEL[Identity]] = None,
       orderBy: Option[NEL[Map[Identity, Identity]]] = None,
       filterOut: Option[GraphQuery] = None,
-      filterOutFields: Option[NEL[Identity]] = Some(NEL("_to"))
+      filterOutFields: Option[NEL[Identity]] = Some(NEL(Identity.unsafeApply("_to")))
   ): GraphQuery = SingleQuery(srcVertices, steps, removeCycle, select, groupBy, orderBy, filterOut, filterOutFields)
 
   def multi(

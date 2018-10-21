@@ -7,7 +7,7 @@ import cats.syntax.either._
 import serialize.{JsonDecoder, JsonEncoder}
 import cats.syntax.option._
 
-trait Identity { self =>
+sealed abstract class Identity { self =>
   def getString: Option[String] = self match {
     case StringIdentity(d) => d.some
     case _                 => none
@@ -18,19 +18,19 @@ trait Identity { self =>
     case _               => none
   }
 }
-case class LongIdentity(value: Long) extends Identity
-case class StringIdentity(value: String) extends Identity
+final case class LongIdentity private (value: Long) extends Identity
+final case class StringIdentity private (value: String) extends Identity
 
 case object Identity extends IdentityInstances {
-  def apply(s: String): Identity = {
-    assert(s.getBytes("UTF-8").size < 249, s"Identity($s)'s length over 249")
-    assert(s.getBytes("UTF-8").size > 0, s"Identity not allow empty")
-    StringIdentity(s)
+  def apply(s: String): Either[Throwable, Identity] = {
+    if (s.getBytes("UTF-8").size > 249) new Throwable(s"Identity($s)'s length over 249").asLeft
+    else if (s.getBytes("UTF-8").size < 1) new Throwable(s"Identity not allow empty").asLeft
+    else StringIdentity(s).asRight
   }
 
-  def apply(l: Long): Identity = LongIdentity(l)
+  private[model] def unsafeApply(s: String): Identity = StringIdentity(s)
 
-  implicit def fromString(s: String): Identity = apply(s)
+  def apply(l: Long): Either[Throwable, Identity] = LongIdentity(l).asRight
 }
 
 trait IdentityInstances {
@@ -43,6 +43,6 @@ trait IdentityInstances {
 
   implicit val identityDecoder = new JsonDecoder[Identity] {
     def jsonTo(a: String): Either[Throwable, Identity] =
-      a.jsonTo[Long].map(Identity.apply) orElse a.jsonTo[String].map(Identity.apply)
+      a.jsonTo[Long].flatMap(Identity.apply) orElse a.jsonTo[String].flatMap(Identity.apply)
   }
 }

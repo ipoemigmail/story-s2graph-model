@@ -2,7 +2,7 @@ package com.kakao.story
 package s2graph
 package model
 
-case class Degree(
+final case class Degree(
     from: Value,
     label: Identity,
     direction: Direction,

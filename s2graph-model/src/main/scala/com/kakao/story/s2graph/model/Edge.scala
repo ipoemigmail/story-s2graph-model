@@ -7,9 +7,9 @@ import serialize.syntax.all._
 import serialize.instances.all._
 import cats.syntax.either._
 
-trait Edge
+sealed abstract class Edge
 
-case class SingleEdge(
+final case class SingleEdge(
     timestamp: Option[Long],
     operation: Option[Operation],
     score: Option[Double],
@@ -20,7 +20,7 @@ case class SingleEdge(
     props: Map[Identity, Value]
 ) extends Edge
 
-case class AggEdges(
+final case class AggEdges(
     groupBy: Option[Map[Identity, Value]],
     scoreSum: Option[Double],
     agg: Option[List[SingleEdge]]

@@ -6,7 +6,7 @@ import cats.syntax.either._
 import serialize.{JsonDecoder, JsonEncoder}
 import serialize.syntax.all._
 
-sealed trait Direction
+sealed abstract class Direction
 
 object Direction extends DirectionInstances {
 

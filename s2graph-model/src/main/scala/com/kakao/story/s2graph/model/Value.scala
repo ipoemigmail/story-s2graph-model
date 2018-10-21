@@ -6,7 +6,7 @@ import serialize.{JsonDecoder, JsonEncoder}
 import serialize.syntax.all._
 import cats.data._, cats.implicits._
 
-sealed trait Value { self =>
+sealed abstract class Value { self =>
   def getDouble: Option[Double] = self match {
     case DoubleValue(d) => d.some
     case _              => none
@@ -22,9 +22,9 @@ sealed trait Value { self =>
     case _            => none
   }
 }
-case class DoubleValue(value: Double) extends Value
-case class StringValue(value: String) extends Value
-case class LongValue(value: Long) extends Value
+final case class DoubleValue(value: Double) extends Value
+final case class StringValue(value: String) extends Value
+final case class LongValue(value: Long) extends Value
 
 object Value extends ValueInstances {
   def apply(value: Double): Value = DoubleValue(value)

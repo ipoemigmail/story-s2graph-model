@@ -9,8 +9,12 @@ import syntax.all._
 import instances.circe._
 import io.circe.Json
 import cats.syntax.all._
+import com.kakao.story.s2graph.model.Identity
 
 class CirceInstancesTest extends FlatSpec with Matchers {
+
+  // for test, don't use it in production
+  @inline def unsafeIdentity(s: String): Identity = Identity(s).right.get
 
   "JsonDecoder" should "decode Standard Primary types" in {
     "1".jsonTo[Int] should be(1.asRight)
@@ -31,28 +35,28 @@ class CirceInstancesTest extends FlatSpec with Matchers {
   it should "decode User Defined types (No JsonEncoder)" in {
     import s2graph.model._
 
-    //"{ \"from\": 1, \"to\": 10}".jsonTo[Duration] should be(Duration(1, 10).asRight)
+    "{ \"from\": 1, \"to\": 10}".jsonTo[Duration] should be(Duration(1, 10).asRight)
   }
 
   it should "decode User Defined types (JsonEncoder)" in {
     import s2graph.model._
 
-    "\"a\"".jsonTo[Identity] should be(Identity("a").asRight)
+    "\"a\"".jsonTo[Identity] should be(Identity("a"))
 
     "\"a\"".jsonTo[Value] should be(Value("a").asRight)
-    "1.0".jsonTo[Value] should be(Value(1.0).asRight)
+    "1".jsonTo[Value] should be(Value(1).asRight)
   }
 
   it should "decode Complex type" in {
     import s2graph.model._
 
-    "{\"a\": 1}".jsonTo[Map[Identity, Value]] should be(Map(Identity("a") -> Value(1.0)).asRight)
+    "{\"a\": 1}".jsonTo[Map[Identity, Value]] should be(Map(unsafeIdentity("a") -> Value(1)).asRight)
 
     val graphQuery = GraphQuery.single(
       srcVertices = NEL(
         Vertex(
-          serviceName = "kakaostory",
-          columnName = "doc_id",
+          serviceName = unsafeIdentity("kakaostory"),
+          columnName = unsafeIdentity("doc_id"),
           id = Value("89532167_100716066432862003").some
         )
       ),
@@ -60,7 +64,7 @@ class CirceInstancesTest extends FlatSpec with Matchers {
         Step(
           step = NEL(
             StepDetail(
-              label = Identity("kakaostory_3tab_user_doc_action"),
+              label = unsafeIdentity("kakaostory_3tab_user_doc_action"),
               direction = Direction.In.some,
               limit = 5.some,
               offset = 0.some,
@@ -116,7 +120,7 @@ class CirceInstancesTest extends FlatSpec with Matchers {
 
     2.0.toJson should be("2.0")
 
-    (1).some.toJson should be("1")
+    1.some.toJson should be("1")
 
     None.toJson should be("null")
 
@@ -131,20 +135,18 @@ class CirceInstancesTest extends FlatSpec with Matchers {
   it should "encode User Defined types (No JsonEncoder) " in {
     import s2graph.model.Duration
 
-    //Duration(1, 10).toJson should be(formatJson(("{\"from\":1, \"to\":10}")))
+    Duration(1, 10).toJson should be(formatJson(("{\"from\":1, \"to\":10}")))
   }
 
   it should "encode User Defined types (with JsonEncoder) " in {
-    import s2graph.model.Identity
-
-    Identity("1").toJson should be("\"1\"")
+    unsafeIdentity("1").toJson should be("\"1\"")
   }
 
   it should "encode Standard Primary type with User Defined types " in {
     import s2graph.model.Identity
     import s2graph.model.Value
 
-    Map(Identity("1") -> Value(1)).toJson should be(formatJson("{\"1\": 1}"))
+    Map(unsafeIdentity("1") -> Value(1)).toJson should be(formatJson("{\"1\": 1}"))
   }
 
   it should "encode Complex type" in {
@@ -153,15 +155,15 @@ class CirceInstancesTest extends FlatSpec with Matchers {
     val graphQuery = GraphQuery.single(
       srcVertices = NEL(
         Vertex(
-          serviceName = "kakaostory",
-          columnName = "doc_id",
+          serviceName = unsafeIdentity("kakaostory"),
+          columnName = unsafeIdentity("doc_id"),
           id = Value("89532167_100716066432862003").some
         )),
       steps = NEL(
         Step(
           step = NEL(
             StepDetail(
-              label = Identity("kakaostory_3tab_user_doc_action"),
+              label = unsafeIdentity("kakaostory_3tab_user_doc_action"),
               direction = Direction.In.some,
               limit = 5.some,
               offset = 0.some,
@@ -207,6 +209,7 @@ class CirceInstancesTest extends FlatSpec with Matchers {
     graphQuery.toJson should be(formatJson(result))
   }
 
+  /*
   it should "" in {
     import s2graph.model._
     import java.time.{ZonedDateTime => ZDT, Instant, ZoneId}
@@ -223,63 +226,64 @@ class CirceInstancesTest extends FlatSpec with Matchers {
 
     val srcVertices = NEL(
       Vertex(
-        serviceName = Identity("kakaostory"),
-        columnName = Identity("profile_id"),
-        id = daisy
+        serviceName = unsafeIdentity("kakaostory"),
+        columnName = unsafeIdentity("profile_id"),
+        id = me
       )
     )
 
-    //val TimeUnit: Long = 60 * 60 * 1000
-    val TimeUnit: Long = 100000000
+    val TimeUnit: Long = 60 * 60 * 1000
+    //val TimeUnit: Long = 100000000
 
-    val scoring = Map(Identity("doc_created_at") -> Value(1), Identity("_timestamp") -> Value(0)).some
+    val scoring = Map(unsafeIdentity("doc_created_at") -> Value(1), unsafeIdentity("_timestamp") -> Value(0)).some
     //val scoring = none[Map[Identity, Value]]
 
-    //val timeDecay = TimeDecay(1.0, 0.9, TimeUnit).some
-    val timeDecay = none[TimeDecay]
+    val timeDecay = TimeDecay(1.0, 0.1, TimeUnit).some
+    //val timeDecay = none[TimeDecay]
 
     def recentReadContents(offset: Int, limit: Int) = StepDetail(
-      label = "kakaostory_3tab_user_doc_action",
+      label = unsafeIdentity("kakaostory_3tab_user_doc_action"),
       offset = offset.some,
       limit = limit.some,
+      timeDecay = timeDecay,
       direction = Direction.Out.some,
       duplicate = Duplicate.First.some,
       duration = Duration(0, targetMilli).some,
-      index = Identity("_IDX_ACTION").some,
+      index = unsafeIdentity("_IDX_ACTION").some,
     )
 
     def contentsReaders(offset: Int, limit: Int) = StepDetail(
-      label = "kakaostory_3tab_user_doc_action",
+      label = unsafeIdentity("kakaostory_3tab_user_doc_action"),
       offset = offset.some,
       limit = limit.some,
       direction = Direction.In.some,
-      index = Identity("_IDX_ACTION").some,
+      index = unsafeIdentity("_IDX_ACTION").some,
       duplicate = Duplicate.First.some,
       duration = Duration(0, targetMilli).some,
-      interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
+      interval = Interval(Map(unsafeIdentity("action") -> Value("click")), Map(unsafeIdentity("action") -> Value("click"))).some
     )
 
     def recentReadContentsWithScoring(offset: Int, limit: Int) = StepDetail(
-      label = "kakaostory_3tab_user_doc_action",
+      label = unsafeIdentity("kakaostory_3tab_user_doc_action"),
       offset = offset.some,
       limit = limit.some,
       scoring = scoring,
       direction = Direction.Out.some,
-      duplicate = Duplicate.CountSum.some,
+      duplicate = Duplicate.Raw.some,
       duration = Duration(0, targetMilli).some,
-      index = Identity("_IDX_ACTION").some,
-      interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
+      index = unsafeIdentity("_IDX_ACTION").some,
+      interval = Interval(Map(unsafeIdentity("action") -> Value("click")), Map(unsafeIdentity("action") -> Value("click"))).some
     )
 
     val editorSuggestContents = StepDetail(
-      label = "kakaostory_3tab_editor_doc_select",
+      label = unsafeIdentity("kakaostory_3tab_editor_doc_select"),
       offset = 0.some,
       limit = 10.some,
       direction = Direction.In.some,
-      index = Identity("_IDX_ACTION").some,
-      scoring = Map(Identity("score") -> Value(1)).some,
+      index = unsafeIdentity("_IDX_ACTION").some,
+      scoring = Map(unsafeIdentity("score") -> Value(1)).some,
       duration = Duration(0, targetMilli).some,
-      interval = Interval(Map(Identity("action") -> Value("click")), Map(Identity("action") -> Value("click"))).some
+      interval = Interval(Map(unsafeIdentity("action") -> Value("click")), Map(unsafeIdentity("action") -> Value("click"))).some
     )
 
     import inhouse.utils.StoryId
@@ -298,15 +302,15 @@ class CirceInstancesTest extends FlatSpec with Matchers {
     )
 
     val query = GraphQuery.single(
-      filterOut = filterOutQuery.some,
+      //filterOut = filterOutQuery.some,
       removeCycle = true.some,
       srcVertices = srcVertices,
       //groupBy = NEL(Identity("to")).some,
-      orderBy = NEL(Map(Identity("doc_created_at") -> Identity("DESC"))).some,
+      orderBy = NEL(Map(unsafeIdentity("doc_created_at") -> unsafeIdentity("DESC"))).some,
       steps = NEL(
         Step(step = NEL(recentReadContents(0, -1))),
-        Step(step = NEL(contentsReaders(0, 5))),
-        Step(step = NEL(recentReadContentsWithScoring(0, 5))),
+        //Step(step = NEL(contentsReaders(0, 5))),
+        //Step(step = NEL(recentReadContentsWithScoring(0, 5))),
       )
     )
 
@@ -331,13 +335,13 @@ class CirceInstancesTest extends FlatSpec with Matchers {
           .map {
             case SingleEdge(Some(timestamp), _, Some(score), _, Some(to), _, _, props) =>
               val link = StoryId.activityPermalink("real", to.getString.get)
-              val docCreatedAt = props("doc_created_at").toString
+              val docCreatedAt = props(unsafeIdentity("doc_created_at")).toString
               makeRow(link, parseEpochMilli(timestamp), timestamp.toString, docCreatedAt, "%.40f".format(score))
 
             case AggEdges(Some(group), Some(scoreSum), Some(agg @ List(headEdge, _ @_*))) =>
-              val link = StoryId.activityPermalink("real", group(Identity("to")).getString.get)
+              val link = StoryId.activityPermalink("real", group(unsafeIdentity("to")).getString.get)
               val timestamp = agg.map(_.timestamp).max
-              val docCreatedAt = headEdge.props(Identity("doc_created_at")).toString
+              val docCreatedAt = headEdge.props(unsafeIdentity("doc_created_at")).toString
               makeRow(link, parseEpochMilli(timestamp.get), timestamp.toString, docCreatedAt, "%.40f".format(scoreSum))
 
             case text =>
@@ -346,5 +350,6 @@ class CirceInstancesTest extends FlatSpec with Matchers {
           .foreach(println)
     }
   }
+  */
 
 }

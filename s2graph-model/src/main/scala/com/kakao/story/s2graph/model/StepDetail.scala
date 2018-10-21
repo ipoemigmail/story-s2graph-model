@@ -2,7 +2,7 @@ package com.kakao.story
 package s2graph
 package model
 
-case class StepDetail(
+final case class StepDetail(
     label: Identity,
     direction: Option[Direction] = None,
     limit: Option[Int] = Some(10),

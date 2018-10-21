@@ -7,7 +7,7 @@ import serialize.syntax.all._
 
 import cats.syntax.either._
 
-sealed trait Operation
+sealed abstract class Operation
 
 object Operation extends OperationInstances {
 

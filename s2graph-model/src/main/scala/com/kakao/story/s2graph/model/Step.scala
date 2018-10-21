@@ -2,7 +2,7 @@ package com.kakao.story
 package s2graph
 package model
 
-case class Step(
+final case class Step(
     step: NEL[StepDetail],
     weights: Option[Map[Identity, Double]] = None,
     nextStepThreshold: Option[Double] = None,
